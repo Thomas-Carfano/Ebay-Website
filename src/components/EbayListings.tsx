@@ -21,12 +21,20 @@ export default function EbayListings() {
       setError(null);
 
       try {
-        const response = await fetch('/api/items');
+        const response = await fetch('/api/items?debug=true');
         if (!response.ok) {
           throw new Error('Failed to fetch items');
         }
         const data = await response.json();
         setItems(data.items || []);
+
+        // Log debug info to console for troubleshooting
+        if (data.debug) {
+          console.log('eBay Fetch Debug Info:', data.debug);
+        }
+        if (data.errors && Object.keys(data.errors).length > 0) {
+          console.warn('eBay Fetch Errors:', data.errors);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -97,6 +105,57 @@ export default function EbayListings() {
         >
           Try Again
         </button>
+      </div>
+    );
+  }
+
+  // Show helpful message when no items found
+  if (!loading && items.length === 0) {
+    return (
+      <div className="space-y-6">
+        {/* Filters Bar */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
+          <SellerTabs
+            sellers={SELLERS}
+            activeSeller={activeSeller}
+            onSellerChange={setActiveSeller}
+            itemCounts={itemCounts}
+          />
+        </div>
+
+        <div className="text-center py-16 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <div className="text-6xl mb-4">📦</div>
+          <h3 className="text-xl font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+            No items loaded
+          </h3>
+          <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-md mx-auto">
+            Items couldn&apos;t be fetched from eBay. This may be due to network restrictions in the current environment.
+          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              View items directly on eBay:
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {SELLERS.map((seller) => (
+                <a
+                  key={seller.username}
+                  href={`https://www.ebay.com/sch/i.html?_ssn=${seller.username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                >
+                  {seller.displayName}
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19V6.413L11.2071 14.2071L9.79289 12.7929L17.585 5H13V3H21Z" />
+                  </svg>
+                </a>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-6">
+            Check browser console (F12) for debug info
+          </p>
+        </div>
       </div>
     );
   }
