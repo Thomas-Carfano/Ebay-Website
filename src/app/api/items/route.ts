@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server';
-import { fetchSellerItems, fetchAllSellersItems } from '@/lib/ebay';
+import { fetchSellerItemsFromApi, fetchAllSellersItemsFromApi, isEbayApiConfigured } from '@/lib/ebay-api';
 import { SELLERS } from '@/types/ebay';
 
 export const revalidate = 300; // Revalidate every 5 minutes
+export const dynamic = 'force-dynamic'; // Ensure fresh data on each request
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const seller = searchParams.get('seller');
-  const debug = searchParams.get('debug') === 'true';
+
+  // Check if API is configured
+  if (!isEbayApiConfigured()) {
+    return NextResponse.json(
+      {
+        error: 'eBay API not configured',
+        message: 'Please set EBAY_APP_ID and EBAY_CERT_ID environment variables in Vercel',
+        setupUrl: 'https://developer.ebay.com/',
+        items: [],
+        count: 0,
+      },
+      { status: 200 } // Return 200 so the UI can show a helpful message
+    );
+  }
 
   try {
     if (seller) {
@@ -19,23 +33,24 @@ export async function GET(request: Request) {
           { status: 400 }
         );
       }
-      const result = await fetchSellerItems(seller);
+
+      const items = await fetchSellerItemsFromApi(seller);
       return NextResponse.json({
-        items: result.items,
-        count: result.items.length,
+        items,
+        count: items.length,
         timestamp: new Date().toISOString(),
-        ...(debug && { debug: result.debug, error: result.error }),
+        source: 'ebay-api',
       });
     } else {
       // Fetch all sellers
       const sellerUsernames = SELLERS.map(s => s.username);
-      const result = await fetchAllSellersItems(sellerUsernames);
+      const items = await fetchAllSellersItemsFromApi(sellerUsernames);
 
       return NextResponse.json({
-        items: result.items,
-        count: result.items.length,
+        items,
+        count: items.length,
         timestamp: new Date().toISOString(),
-        ...(debug && { debug: result.debug, errors: result.errors }),
+        source: 'ebay-api',
       });
     }
   } catch (error) {
@@ -44,8 +59,10 @@ export async function GET(request: Request) {
       {
         error: 'Failed to fetch items',
         message: error instanceof Error ? error.message : 'Unknown error',
+        items: [],
+        count: 0,
       },
-      { status: 500 }
+      { status: 200 } // Return 200 so the UI can handle gracefully
     );
   }
 }
